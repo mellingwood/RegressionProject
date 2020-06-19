@@ -1,0 +1,67 @@
+---
+title: "initial_models"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+
+lax <- read_csv("../Data/womens_ncaa_lacrosse.csv")
+```
+
+
+So now I want to start building models for win percentage using my predictor variables...
+
+```{r}
+gf_model <- lm(win_pct ~ gf_gp, data = lax)
+
+summary(gf_model)
+```
+so it is definitely a significant predictor
+now to look at the diagnostic plots...
+
+```{r}
+library(ggfortify)
+autoplot(gf_model)
+```
+the diagnostic plots look really good, honestly... kind of disappointing that it's such an obvious relationship, though
+
+```{r}
+ga_model <- lm(win_pct ~ ga_gp, data = lax)
+
+summary(ga_model)
+```
+
+goals against is also a significant predictor on its own
+
+```{r}
+autoplot(ga_model)
+```
+
+these diagnostic plots are pretty good too
+
+combining gf and ga...
+```{r}
+goals_model <- lm(win_pct ~ gf_gp + ga_gp, data = lax)
+summary(goals_model)
+```
+
+both remain significant in the additive model
+```{r}
+autoplot(goals_model)
+```
+these plots look a bit weird, as there seems to be some leftover patterning in the residual vs. fits plot, but the scale is so much smaller than the previous ones that I'm less inclined to be worried about it
+
+but should I include an interaction term?
+```{r}
+goals_model_interaction <- lm(win_pct ~ gf_gp + ga_gp + gf_gp * ga_gp,
+                              data = lax)
+summary(goals_model_interaction)
+```
+ooh interesting! the interaction term is totally significant, and including it makes the goals against term significant only at the 0.1 level...
+
+```{r}
+autoplot(goals_model_interaction)
+```
+again, there does appear to be some patterning left over in the residuals vs. fits plot, but I think it is ok
+
