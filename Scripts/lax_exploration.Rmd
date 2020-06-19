@@ -1,0 +1,146 @@
+---
+title: "lax_exploration"
+output: html_document
+---
+
+this is an initial exploration of the data in the lacrosse dataset
+
+```{r}
+library(tidyverse)
+
+lax <- read_csv("../Data/womens_ncaa_lacrosse.csv")
+```
+```{r}
+view(lax)
+```
+
+I guess my first instinct is to look at the distributions of some possible response variables...
+
+win percentage
+```{r}
+lax %>%
+  ggplot(aes(x = win_pct)) +
+  geom_histogram() +
+  theme_bw()
+```
+on the one hand the shape looks pretty normal, but there are some weird drops, so I should change the bin number
+
+```{r}
+lax %>%
+  ggplot(aes(x = win_pct)) +
+  geom_histogram(bins = 15) +
+  theme_bw()
+```
+That looks pretty good to me, in terms of a response variable
+
+goals per game
+```{r}
+lax %>%
+  ggplot(aes(x = gf_gp)) +
+  geom_histogram() +
+  theme_bw()
+```
+that also looks really nice as a normal distribution
+
+just out of curiosity, what about goals allowed per game
+```{r}
+lax %>%
+  ggplot(aes(x = ga_gp)) +
+  geom_histogram() +
+  theme_bw()
+```
+that's ok but not perfect
+
+I kind of want to create a variable of goal differential, but I'm not entirely sure how to do go about it... actually it looks like margin is that
+
+margin
+```{r}
+lax %>%
+  ggplot(aes(x = margin)) +
+  geom_histogram(bins = 25) +
+  theme_bw()
+```
+That looks pretty good, but I don't really like how it has that dip around zero, like way fewer teams were evenly matched with their opponents
+
+I think I am inclined to go with win percentage, because it feels like the most interesting response variable, but I am worried that we will see some problems with impossible predicted values, given the constricted range of the true values for win percentage, but we'll cross that bridge when we come to it.
+
+Exploring relationships between variables
+
+win_pct and gf_gp
+```{r}
+lax %>%
+  ggplot(aes(x = gf_gp, y = win_pct)) +
+  geom_point() +
+  theme_bw()
+```
+that looks pretty nice!
+
+win percentage from goals against
+
+```{r}
+lax %>%
+  ggplot(aes(x = ga_gp, y = win_pct)) +
+  geom_point() +
+  theme_bw()
+```
+
+what about some of the less obvious ones, like turnovers and takeaways?
+
+takeaways/ forced turnovers
+
+```{r}
+lax %>%
+  ggplot(aes(x = caused_turnover_gp, y = win_pct)) +
+  geom_point() +
+  theme_bw()
+```
+turnovers
+
+```{r}
+lax %>%
+  ggplot(aes(x = turnovers_gp, y = win_pct)) +
+  geom_point() +
+  theme_bw()
+```
+these are all looking pretty good, to be honest
+
+draw controls
+```{r}
+lax %>%
+  ggplot(aes(x = drawc_control_pct, y = win_pct)) +
+  geom_point() +
+  theme_bw()
+```
+that's pretty interesting to me, that there appears to be a positive relationship between faceoff performance and overall success
+
+ground balls
+```{r}
+lax %>%
+  ggplot(aes(x = ground_balls_gp, y = win_pct)) +
+  geom_point() +
+  theme_bw()
+```
+There's less of a relationship here, but it's interesting to a former player whose coaches always really emphasized ground balls
+
+save percentage
+```{r}
+lax %>%
+  ggplot(aes(x = sv_pct, y = win_pct)) +
+  geom_point() +
+  theme_bw()
+```
+
+I wish that I could figure out how to make a correlation matrix with all of these values...
+
+```{r}
+lax %>%
+  filter(!is.na(win_pct)) %>%
+  select(win_pct, gf_gp, ga_gp, caused_turnover_gp, turnovers_gp,
+         ground_balls_gp, sv_pct) %>%
+  cor()
+```
+Interesting, so goals for and goals against have the strongest relationship, but they're kind of obvious
+turnovers have the next strongest (negative) relationship, but takeaways is a lot weaker-- it is more important that you not give the other team more opportunities, and slightly less important to create opportunities for your own team
+save percentage also has a relatively strong relationship as well
+
+
