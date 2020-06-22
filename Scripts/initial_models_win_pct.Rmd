@@ -65,3 +65,48 @@ autoplot(goals_model_interaction)
 ```
 again, there does appear to be some patterning left over in the residuals vs. fits plot, but I think it is ok
 
+so those were the obvious ones, what about the less obvious, more nitty-gritty gameplay variables?
+
+forced turnovers / takeaways
+
+```{r}
+takeawaymodel <- lm(win_pct ~ caused_turnover_gp, data = lax)
+summary(takeawaymodel)
+```
+```{r}
+autoplot(takeawaymodel)
+```
+that looks decent to me
+
+turnovers
+
+```{r}
+turnovermodel <- lm(win_pct ~ turnovers_gp, data = lax)
+summary(turnovermodel)
+```
+
+```{r}
+autoplot(turnovermodel)
+```
+now that is the best residuals vs fits plot I've seen yet, I think
+
+ground balls
+```{r}
+groundballmodel <- lm(win_pct ~ ground_balls_gp, data = lax)
+summary(groundballmodel)
+```
+```{r}
+autoplot(groundballmodel)
+```
+those look ok to me
+
+save percentage
+
+```{r}
+save_perc_model <- lm(win_pct ~ sv_pct, data = lax)
+summary(save_perc_model)
+```
+```{r}
+autoplot(save_perc_model)
+```
+oh that one looks really nice too (and it has a high R squared, but I guess we're not supposed to use that?)

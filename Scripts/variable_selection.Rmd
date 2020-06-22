@@ -1,0 +1,7 @@
+---
+title: "variable_selection"
+output: html_document
+---
+
+so now that we're pretty sure we want to use win percentage as our response variable, and I have a set of nine candidate predictors, I am interested in narrowing that down into a good model...
+

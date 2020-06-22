@@ -143,4 +143,44 @@ Interesting, so goals for and goals against have the strongest relationship, but
 turnovers have the next strongest (negative) relationship, but takeaways is a lot weaker-- it is more important that you not give the other team more opportunities, and slightly less important to create opportunities for your own team
 save percentage also has a relatively strong relationship as well
 
+ok, switching gears back to worrying about the response variable itself, we are concerned with how "margin" is calculated and how that might be affecting the distribution
+
+```{r}
+lax <- lax %>%
+  mutate(goal_differential = (goals - goals_allowed) /games)
+lax %>%
+  ggplot(aes(x = goal_differential)) +
+  geom_histogram() +
+  theme_bw()
+```
+ok nevermind, that looks basically the same as margin...
+
+I'm gonna try a quick log transformation of margin, just to make sure that that doesn't magically solve the problem
+
+```{r}
+lax %>%
+  mutate(log_margin = log(margin)) %>%
+  ggplot(aes(x = log_margin)) +
+  geom_histogram() +
+  theme_bw()
+```
+ok so that makes it worse... nevermind.
+
+
+I would like to do a bit more work to see what variables might be good as predictors, though...
+
+```{r}
+lax_cor_vars <- lax %>%
+  filter(!is.na(win_pct)) %>%
+  select(assists_gp, caused_turnover_gp, draw_controls_gp, fouls_per_game,
+         free_position_pct, ground_balls_gp, sv_pct, sog_gp, turnovers_gp, win_pct)
+
+lax_cor_matrix <- cor(lax_cor_vars)
+lax_cor_matrix
+```
+and a correlation plot... (because that matrix is a lot)
+```{r}
+library(ggcorrplot)
+ggcorrplot(lax_cor_matrix, type = "lower", lab = TRUE)
+```
 

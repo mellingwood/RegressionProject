@@ -1,0 +1,62 @@
+---
+title: "initial_models_margin"
+output: html_document
+---
+
+now we are considering using margin as the response variable, but we are slightly concerned about the distribution, as it looks almost bimodal rather than normal, with a dip at zero
+
+```{r}
+lax %>%
+  ggplot(aes(x = margin)) +
+  geom_histogram(bins = 25) +
+  theme_bw()
+```
+
+so now to try modeling it...
+
+```{r}
+takeawaymodel <- lm(margin ~ caused_turnover_gp, data = lax)
+
+summary(takeawaymodel)
+```
+what about the diagnostic plots?
+```{r}
+autoplot(takeawaymodel)
+```
+the residuals vs fits looks like it has just a bit of curvature left over, so I should look at the scatterplot
+
+```{r}
+lax %>%
+  ggplot(aes(x = caused_turnover_gp, y = margin)) +
+  geom_point() +
+  theme_bw()
+
+```
+there could be some curvature there I guess, so I'll try fitting a quadratic model...
+
+```{r}
+takeawaymodel2 <- lm(margin ~ caused_turnover_gp + 
+                       I(caused_turnover_gp^2), data = lax)
+
+summary(takeawaymodel2)
+
+```
+interesting, so both the linear term and the quadratic term were significant! now to look at the residual plots...
+```{r}
+autoplot(takeawaymodel2)
+```
+so it seemed to fix the curvature, but there is now an issue with non-constant variance in that residuals vs fitted values plot...
+
+does the curvature issue pop up with all predictors?
+
+```{r}
+groundballmodel <- lm(margin ~ ground_balls_gp, data = lax)
+summary(groundballmodel)
+
+```
+
+and the plots...
+```{r}
+autoplot(groundballmodel)
+```
+it's weird, because if I saw that residuals vs fits plot without the trendline thing, I would be happy with it, but the trendline is totally throwing me off...
