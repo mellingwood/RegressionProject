@@ -1,0 +1,66 @@
+---
+title: "check_in_summary"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+
+lax <- read_csv("../Data/womens_ncaa_lacrosse.csv")
+```
+
+
+First we did some EDA, looking at the kinds of variables that were available.
+Right away we pretty much decided that we should only look at the per game and percentage variables, because different teams played the different numbers of games per season, which would affect the raw scores for variables.
+We waffled a lot between using win percentage and margin as response variables, because they each had drawbacks. Win percentage has some complications with interpretation, as it has a restricted range of possible response values, while simple linear regression does not restrict the range of predicted responses. However, its distribution was relatively normal.
+
+```{r}
+lax %>%
+  ggplot(aes(x = win_pct)) +
+  geom_histogram(bins = 15) +
+  theme_bw()
+```
+On the other hand, margin had maybe a clearer interpretation, but its distribution was bimodal, and this caused some problems with the residual vs fit plots when we started trying to fit models with it as a response variable.
+```{r}
+lax %>%
+  ggplot(aes(x = margin)) +
+  geom_histogram(bins = 25) +
+  theme_bw()
+```
+Eventually we decided that win percentage was the better option for a response variable, and we turned our attention to selecting predictors. We decided not to use goals for per game or goals against per game, as we figured these were too "obvious" as predictors, and could overpower interesting results that would be possible with some of the more subtle gameplay variables.
+
+We also left out several variables that did not start being measured until 2019, like clear percent. 
+
+This led us to a set of nine possible predictor variables: assists per game, caused turnovers or takeaways per game, draw controls per game, fouls per game, free-position percent, ground balls per game, save percent, shots on goal per game, and turnovers per game.
+
+
+We then looked at a correlation matrix and plot of these values...
+```{r}
+lax_cor_vars <- lax %>%
+  filter(!is.na(win_pct)) %>%
+  filter(season != 2020) %>%
+  select(assists_gp, caused_turnover_gp, draw_controls_gp, fouls_per_game,
+         free_position_pct, ground_balls_gp, sv_pct, sog_gp, turnovers_gp, win_pct)
+
+lax_cor_matrix <- cor(lax_cor_vars)
+
+library(ggcorrplot)
+ggcorrplot(lax_cor_matrix, type = "lower", lab = TRUE)
+
+```
+... and did a clustering analysis of the variables.
+```{r}
+lax_exp_vars <- dplyr::select(lax_cor_vars, -win_pct)
+
+lax_exp_cor_matrix <- cor(lax_exp_vars)
+
+cor_dist_matrix <- 1 - abs(lax_exp_cor_matrix)
+cor_dist_matrix <- as.dist(cor_dist_matrix)
+
+lax_exp_hc <- hclust(cor_dist_matrix, method = "complete")
+
+library(ggdendro)
+ggdendrogram(lax_exp_hc, rotate = TRUE, size = 2)
+
+```
+From there I decided to do elastic net regression to explore which variables might be eliminated through that (see variable_selection.Rmd)
