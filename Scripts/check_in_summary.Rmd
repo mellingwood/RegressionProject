@@ -63,4 +63,100 @@ library(ggdendro)
 ggdendrogram(lax_exp_hc, rotate = TRUE, size = 2)
 
 ```
-From there I decided to do elastic net regression to explore which variables might be eliminated through that (see variable_selection.Rmd)
+The most closely-related variables are shots on goal per game and draw controls per game, but because they are not actually that close, and they are not conceptually related, I don't think I would eliminate either of them based on this information.
+
+For further variable selection, I am inclined to use elastic net regression with k-fold validation in order to see which variables might be eliminated based on the Lasso penalty
+
+First, I need to assign the observations to folds-- and I want to do 10 folds
+
+```{r}
+set.seed(2020) # seems like bad luck to do 2020, but whatever
+
+lax_model_data <- lax %>%
+  filter((season == 2018) | (season == 2019), !is.na(win_pct)) %>%
+  select(win_pct, assists_gp, caused_turnover_gp, draw_controls_gp, 
+         fouls_per_game, free_position_pct, ground_balls_gp, sv_pct,
+         sog_gp, turnovers_gp)
+
+fold_id <- sample(rep(1:10, length.out = nrow(model_x)))
+table(fold_id) # just to make sure it worked
+  
+```
+and I have to set up the matrices of the values...
+```{r}
+model_x <- model.matrix(win_pct ~ ., data = lax_model_data)[, -1]
+model_y <- lax_model_data$win_pct
+```
+
+and then I can actually do the elastic net regression with several different values for alpha
+
+```{r}
+cv_en_10 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.10)
+cv_en_20 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.20)
+cv_en_30 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.30)
+cv_en_40 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.40)
+cv_en_50 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.50)
+cv_en_60 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.60)
+cv_en_70 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.70)
+cv_en_80 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.80)
+cv_en_90 <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0.90)
+cv_ridge <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 0)
+cv_lasso <- cv.glmnet(model_x, model_y,
+                      foldid = fold_id,
+                      alpha = 1)
+```
+and we can see which of these had the lowest cross-validation error
+```{r}
+which.min(c(min(cv_en_10$cvm),min(cv_en_20$cvm), min(cv_en_30$cvm),
+            min(cv_en_40$cvm), min(cv_en_50$cvm), min(cv_en_60$cvm),
+            min(cv_en_70$cvm), min(cv_en_80$cvm), min(cv_en_90$cvm),
+            min(cv_ridge$cvm), min(cv_lasso$cvm)))
+```
+
+elastic net with an alpha level of 0.1 is the best...
+
+now I want to see what the coefficients are for that and see if any variables were eliminated
+
+```{r}
+coef(cv_en_10)
+```
+So it removed fouls per game, but it kept all the other ones
+
+can we predict based on this model?
+
+```{r}
+lax2020 <- lax %>%
+  filter(season == 2020)
+
+#lax2020$pred_win_pct <- predict(cv_en_10, newx = lax2020)
+```
+
+not currently able to predict, getting an error because of the data structure that the model is stored in...
+
+can I at least do the diagnostic plots?
+
+```{r}
+autoplot(cv_en_10)
+```
+
+nope, that just shows the plot of optimizing the lambda values...
