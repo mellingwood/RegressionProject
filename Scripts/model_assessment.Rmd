@@ -1,0 +1,42 @@
+---
+title: "model_assessment"
+output: html_document
+---
+
+so now that we have our model...
+
+```{r}
+library(tidyverse)
+
+lax <- read_csv("../Data/womens_ncaa_lacrosse.csv")
+lax_model_data <- lax %>%
+  filter((season == 2018) | (season == 2019), !is.na(win_pct)) %>%
+  select(win_pct, assists_gp, caused_turnover_gp, draw_controls_gp, 
+         fouls_per_game, free_position_pct, ground_balls_gp, sv_pct,
+         sog_gp, turnovers_gp)
+happy_medium_model <- lm(win_pct ~ assists_gp +
+                                      caused_turnover_gp + draw_controls_gp +
+                                      sv_pct + turnovers_gp,
+                         data = lax_model_data)
+summary(happy_medium_model)
+```
+
+... we need to see if the model is good for inference by looking at the diagnostic plots
+
+```{r}
+autoplot(happy_medium_model)
+```
+ok, so those don't look perfect-- not horrible, but also not great...
+just out of curiosity, do the plots for the complicated model with all the interactions look better?
+
+```{r}
+double_interaction_model <- lm(win_pct ~ assists_gp +
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + 
+                                            sv_pct + sog_gp + turnovers_gp +
+                                            sog_gp * draw_controls_gp +
+                                            sog_gp * assists_gp,
+                               data = lax_model_data)
+autoplot(double_interaction_model)
+```
+so the plots for the complicated model are not all that better than the simpler one, so I guess I would still be inclined to go with the simpler, five-predictor model rather than the one with all the variables and interactions

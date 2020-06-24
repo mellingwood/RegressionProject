@@ -136,3 +136,182 @@ autoplot(cv_en_10)
 ```
 nope, that just shows the plot of optimizing the lambda values...
 
+ok, so I think we are not going to go with this model directly because of its lack of visualization potential, but we will go ahead and drop fouls per game from the model based on the fact that the elastic net regression eliminated it, plus the fact that it has such a low correlation with win percent
+
+back to normal variable selection, we need to again define our test folds...
+
+```{r}
+set.seed(2020) #for replicability
+
+lax_model_data <- lax_model_data %>%
+  mutate(test_fold = sample(rep(1:10, length.out = n())))
+
+```
+
+and then we can define the function for 10-fold cross validation to use for all our models...
+
+```{r}
+get_cv_preds <- function(model_formula, data = lax_model_data) {
+  
+  map_dfr(unique(data$test_fold), 
+          function(holdout) {
+            
+            test_data <- data %>%
+              filter(test_fold == holdout)
+            train_data <- data %>%
+              filter(test_fold != holdout)
+            
+            reg_model <- lm(as.formula(model_formula),
+                            data = train_data)
+            
+            tibble(test_preds = predict(reg_model,
+                                        newdata = test_data),
+                   test_actual = test_data$win_pct,
+                   test_fold = holdout)
+            
+          })
+  
+}
+```
+and just to make things easier, I want to define a function that gives me the MSE for the holdout data...
+```{r}
+get_mse <- function(data) {
+  mean((data$test_actual - data$test_preds)^2)
+}
+get_rmse <- function(data) {
+  sqrt(mean((data$test_actual - data$test_preds)^2))
+}
+```
+
+
+so first I want to look at the MSE for the null model
+```{r}
+null_model_cv_preds <- get_cv_preds("win_pct ~ 1", data = lax_model_data)
+```
+
+now what is the holdout MSE for the null model?
+```{r}
+get_mse(null_model_cv_preds)
+```
+so that seems a lot higher than the MSE given by the elastic net regression for sure, but how does it compare to some other ones?
+
+```{r}
+all_eight_additive_cv_preds <- get_cv_preds("win_pct ~ assists_gp +
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + ground_balls_gp +
+                                            sv_pct + sog_gp + turnovers_gp +
+                                            turnovers_gp")
+
+get_mse(all_eight_additive_cv_preds)
+```
+so all eight does do better than the null model!!
+
+
+now I want to see if removing things improves the performance
+
+removing either ground balls or caused turnovers, choosing to get rid of ground balls because caused turnovers can include ground balls
+```{r}
+remove_gb_additive_cv_preds <- get_cv_preds("win_pct ~ assists_gp +
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + 
+                                            sv_pct + sog_gp + turnovers_gp +
+                                            turnovers_gp")
+
+get_mse(remove_gb_additive_cv_preds)
+```
+so getting rid of ground balls does improve the fit slightly, by about .00005...
+
+what about sog and assists, does removing either of them additionally improve?
+
+```{r}
+remove_gb_sog_additive_cv_preds <- get_cv_preds("win_pct ~ assists_gp +
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + 
+                                            sv_pct + turnovers_gp +
+                                            turnovers_gp")
+get_mse(remove_gb_sog_additive_cv_preds)
+```
+that does do better! but would assists be even better?
+
+```{r}
+remove_gb_assists_additive_cv_preds <- get_cv_preds("win_pct ~ 
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + 
+                                            sv_pct + sog_gp + turnovers_gp +
+                                            turnovers_gp")
+get_mse(remove_gb_assists_additive_cv_preds)
+
+```
+nope, leaving out sog is better-- leaving out assists made the MSE go up higher than it was just leaving out ground balls
+
+but what about the possible interaction between sog and draw controls?
+```{r}
+remove_gb_plus_sogxdraw_cont_interaction <- get_cv_preds("win_pct ~ assists_gp +
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + 
+                                            sv_pct + sog_gp + turnovers_gp +
+                                            turnovers_gp + sog_gp * draw_controls_gp")
+get_mse(remove_gb_plus_sogxdraw_cont_interaction)
+```
+that's even better than leaving out sog!
+
+Bria says that assists and shots on goal as an interaction is good too...
+```{r}
+remove_gb_plus_sogxdraw_sogxassist_interaction <- get_cv_preds("win_pct ~ assists_gp +
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + 
+                                            sv_pct + sog_gp + turnovers_gp +
+                                            sog_gp * draw_controls_gp +
+                                            sog_gp * assists_gp")
+get_mse(remove_gb_plus_sogxdraw_sogxassist_interaction)
+```
+so that looks like as good as it is going to get...
+but are all these variables significant when we look at the lm?
+
+```{r}
+double_interaction_model <- lm(win_pct ~ assists_gp +
+                                            caused_turnover_gp + draw_controls_gp +
+                                            free_position_pct + 
+                                            sv_pct + sog_gp + turnovers_gp +
+                                            sog_gp * draw_controls_gp +
+                                            sog_gp * assists_gp,
+                               data = lax_model_data)
+
+summary(double_interaction_model)
+```
+so none of those things are significant except caused turnovers, save percent, and turnovers... what if I look at a stripped down model?
+
+```{r}
+stripped_down_model <- lm(win_pct ~ caused_turnover_gp + sv_pct +
+                            turnovers_gp, data = lax_model_data)
+summary(stripped_down_model)
+```
+even the R-squared goes down by quite a bit here, so I'm guessing the MSE is way worse too...
+```{r}
+stripped_down_model_cv_preds <- get_cv_preds("win_pct ~ caused_turnover_gp + sv_pct +
+                            turnovers_gp")
+get_mse(stripped_down_model_cv_preds)
+```
+
+oh yeah that's awful, no way.
+
+So I guess the best thing so far is that double interaction model, even though it has so much extra complication. Its MSE or rMSE is just so much better.
+
+Bria has found a possibly better model with only five variables that has better interpretation without interactions, and also pretty good MSE
+
+```{r}
+happy_medium_cv_preds <- get_cv_preds("win_pct ~ assists_gp +
+                                      caused_turnover_gp + draw_controls_gp +
+                                      sv_pct + turnovers_gp")
+get_mse(happy_medium_cv_preds)
+```
+yeah, I think I would go with that one because it is relatively easy to interpret, and its MSE is comparable with more complicated models with both more variables and with interaction terms
+
+```{r}
+happy_medium_model <- lm(win_pct ~ assists_gp +
+                                      caused_turnover_gp + draw_controls_gp +
+                                      sv_pct + turnovers_gp,
+                         data = lax_model_data)
+summary(happy_medium_model)
+```
+AND all of the predictors are significant AND it has a high adjusted R squared
